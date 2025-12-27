@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
@@ -41,10 +41,10 @@ public class ConfigWindow : Window, IDisposable
     public override void Draw()
     {
         // Can't ref a property, so use a local copy
-        var configValue = configuration.SomePropertyToBeSavedAndWithADefault;
-        if (ImGui.Checkbox("Random Config Bool", ref configValue))
+        var configValue = configuration.FeatureOnOff;
+        if (ImGui.Checkbox("Feature On/Off", ref configValue))
         {
-            configuration.SomePropertyToBeSavedAndWithADefault = configValue;
+            configuration.FeatureOnOff = configValue;
             // Can save immediately on change if you don't want to provide a "Save and Close" button
             configuration.Save();
         }
