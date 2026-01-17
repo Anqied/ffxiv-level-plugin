@@ -1,15 +1,25 @@
+using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Command;
+using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
-using System.IO;
-using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
+using Lumina.Excel.Sheets;
+using FFXIVClientStructs.FFXIV.Component.GUI;
+using Lumina.Text.Payloads;
 using SamplePlugin.Windows;
+using System;
+using System.IO;
+using Dalamud.Game.Config;
 
 namespace SamplePlugin;
 
 public sealed class Plugin : IDalamudPlugin
 {
+
+
+
     [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
@@ -17,32 +27,25 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IPlayerState PlayerState { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
-
-    private const string CommandName = "/pmycommand";
+    [PluginService] internal static IGameConfig GameConfig { get; private set; } = null!;
 
     public Configuration Configuration { get; init; }
 
     public readonly WindowSystem WindowSystem = new("SamplePlugin");
     private ConfigWindow ConfigWindow { get; init; }
     //private MainWindow MainWindow { get; init; }
+    private bool TooltipActive = false;
 
-    public Plugin()
+    public Plugin(IDalamudPluginInterface pluginInterface)
     {
+        pluginInterface.Create<Services>();
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
-        // You might normally want to embed resources and load them from the manifest stream
-        var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
-
         ConfigWindow = new ConfigWindow(this);
-        //MainWindow = new MainWindow(this, goatImagePath);
+
+        Services.AddonLifecycle.RegisterListener(AddonEvent.PreReceiveEvent, ["ChatLogPanel_0", "ChatLogPanel_1", "ChatLogPanel_2", "ChatLogPanel_3"], PreReceiveEvent);
 
         WindowSystem.AddWindow(ConfigWindow);
-        //WindowSystem.AddWindow(MainWindow);
-
-        CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
-        {
-            HelpMessage = "A useful message to display in /xlhelp"
-        });
 
         // Tell the UI system that we want our windows to be drawn through the window system
         PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
@@ -58,7 +61,9 @@ public sealed class Plugin : IDalamudPlugin
         // Use /xllog to open the log window in-game
         // Example Output: 00:57:54.959 | INF | [SamplePlugin] ===A cool log message from Sample Plugin===
         Log.Information($"===A cool log message from {PluginInterface.Manifest.Name}===");
+
     }
+
 
     public void Dispose()
     {
@@ -71,8 +76,7 @@ public sealed class Plugin : IDalamudPlugin
 
         ConfigWindow.Dispose();
         //MainWindow.Dispose();
-
-        CommandManager.RemoveHandler(CommandName);
+        Services.AddonLifecycle.UnregisterListener(PreReceiveEvent);
     }
 
     private void OnCommand(string command, string args)
@@ -82,4 +86,38 @@ public sealed class Plugin : IDalamudPlugin
     }
     
     public void ToggleConfigUi() => ConfigWindow.Toggle();
+
+    private unsafe void PreReceiveEvent(AddonEvent type, AddonArgs args)
+    {
+        if (!GameConfig.TryGet(UiConfigOption.LogCrossWorldName, out bool value)) //settings check failed
+            return;
+        if (value) //setting set to show world names
+            return;
+        if (args is not AddonReceiveEventArgs eventArgs)
+            return;
+        var id = eventArgs.Addon.Id;
+        if (id == 0) //null pointer somehow
+            return; 
+        if (eventArgs.AtkEventType == (int)AtkEventType.LinkMouseOver)
+        {
+            if (eventArgs.AtkEventData == IntPtr.Zero) return; //if no info, return
+            var linkData = ((LinkData**)eventArgs.AtkEventData)[0]; //get link data
+            if (linkData == null || linkData->LinkType != (byte)LinkMacroPayloadType.Character) return;
+
+            uint worldId = (uint)linkData->IntValue2; // IntValue2 of character link is world id
+            var world = Services.DataManager.Excel.GetSheet<World>().GetRowOrDefault(worldId); 
+            if (world == null) return;
+            if (PlayerState.HomeWorld.RowId == worldId) return;
+
+            Services.Log.Info($"Hovered player from {world?.Name}");
+            AtkUnitBase* ptr = (AtkUnitBase*)eventArgs.Addon.Address;
+            AtkStage.Instance()->TooltipManager.ShowTooltip(id, ptr->CursorTarget, world?.Name.ToString());
+        }
+        else if (eventArgs.AtkEventType == (int)AtkEventType.LinkMouseOut)
+        {
+            Services.Log.Info($"Stopped hovering");
+            AtkStage.Instance()->TooltipManager.HideTooltip(id);
+        }
+    }
+
 }
