@@ -1,8 +1,9 @@
 {
   "Author": "anqied",
   "Name": "Total Character Level",
-  "Punchline": "Adds a number to the Character Panel that shows the total character level",
-  "Description": "Show the sum of all of a character's jobs.",
+  "Punchline": "Ever wanted to know how many levels you have across all your jobs?",
+  "Description": "Adds numbers to the Classes/Jobs panel showing the sum of the levels of all your jobs.",
   "ApplicableVersion": "any",
-  "Tags": ["ui"]
+  "Tags": ["ui"],
+  "RepoUrl": "https://github.com/Anqied/ffxiv-level-plugin"
 }
