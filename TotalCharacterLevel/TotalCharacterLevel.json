@@ -1,0 +1,8 @@
+{
+  "Author": "anqied",
+  "Name": "Total Character Level",
+  "Punchline": "Adds a number to the Character Panel that shows the total character level",
+  "Description": "Show the sum of all of a character's jobs.",
+  "ApplicableVersion": "any",
+  "Tags": ["ui"]
+}
