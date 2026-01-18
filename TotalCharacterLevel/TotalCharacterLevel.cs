@@ -17,13 +17,13 @@ public sealed class TotalCharacterLevel : IDalamudPlugin
     [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IUnlockState UnlockState { get; private set; } = null!;
 
-    private static readonly string[] Tanks = ["GLA", "MRD", "DRK", "GNB"];
-    private static readonly string[] Healers = ["CNJ", "AST", "SGE"];
-    private static readonly string[] Melees = ["PGL", "LNC", "ROG", "SAM", "RPR", "VPR"];
-    private static readonly string[] Pranges = ["ARC", "MCH", "DNC"];
-    private static readonly string[] Mranges = ["THM", "ACN", "RDM", "PCT", "BLU"];
-    private static readonly string[] DoHs = ["CRP", "BSM", "ARM", "GSM", "LTW", "WVR", "ALC", "CUL"];
-    private static readonly string[] DoLs = ["MIN", "BTN", "FSH"];
+    private static readonly uint[] Tanks = [1, 3, 32, 37];
+    private static readonly uint[] Healers = [6, 33, 40];
+    private static readonly uint[] Melees = [2, 4, 29, 34, 39, 41];
+    private static readonly uint[] Pranges = [5, 31, 38];
+    private static readonly uint[] Mranges = [7, 26, 35, 42, 36];
+    private static readonly uint[] DoHs = [8, 9, 10, 11, 12, 13, 14, 15];
+    private static readonly uint[] DoLs = [16, 17, 18];
 
     public TotalCharacterLevel(IDalamudPluginInterface pluginInterface)
     {
@@ -73,12 +73,9 @@ public sealed class TotalCharacterLevel : IDalamudPlugin
     {
         if (node==null) return;
         var text = new string(node->GetText());
-        //Log.Info("the text i got is: " + text);
         if (!string.IsNullOrEmpty(text) && text[^1] != ')')
             text += " (" + level + ")";
         node->SetText(text);
-        //Log.Info("the text i set is: " + text);
-
     }
 
     /// <summary>
@@ -95,13 +92,13 @@ public sealed class TotalCharacterLevel : IDalamudPlugin
 
         ClassJob? scholar = null;
 
-        var levels = new Dictionary<string, short>();
+        var levels = new Dictionary<uint, short>();
         foreach (var job in DataManager.GetExcelSheet<ClassJob>())
         {
-            if (job.Abbreviation.ToString() == "") continue;
-            if (job.Abbreviation.ToString() == "SCH") scholar = job;
+            if (job.Name.ToString() == "") continue;
+            if (job.RowId == 28) scholar = job;
             var jobLevel = PlayerState.GetClassJobLevel(job);
-            levels.Add(job.Abbreviation.ToString(), jobLevel);
+            levels.Add(job.RowId, jobLevel);
         }
 
         var subtotals = new int[7];
@@ -118,7 +115,7 @@ public sealed class TotalCharacterLevel : IDalamudPlugin
         }
         // special check for Scholar (if unlock quest has been completed)
         if (scholar is not null && UnlockState.IsUnlockLinkUnlocked(((ClassJob)scholar).UnlockQuest.RowId)) {
-            if (levels.TryGetValue("ACN", out var value)) subtotals[1] += value;
+            if (levels.TryGetValue(26, out var value)) subtotals[1] += value;
         }
         foreach (var key in Melees)
         {
